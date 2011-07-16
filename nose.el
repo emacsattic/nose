@@ -1,4 +1,4 @@
-;; nose.el --- Easy Python test running in Emacs
+;;; nose.el --- Easy Python test running in Emacs
 
 ;; Copyright (C) 2009 Jason Pellerin, Augie Fackler
 
@@ -177,3 +177,5 @@
                   nose-project-root-files)))
 
 (provide 'nose)
+
+;;; nose.el ends here
