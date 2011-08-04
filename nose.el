@@ -67,6 +67,10 @@
                        " "
                        (if failed "--failed" "")))
          (tnames (if tests tests "")))
+    (if (not where)
+        (error
+         (format (concat "abort: nosemacs couldn't find a project root, "
+                         "looked for any of %S") nose-project-root-files)))
     (funcall (if debug
                  'pdb
                '(lambda (command)
