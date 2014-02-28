@@ -74,9 +74,11 @@
     (funcall (if debug
                  'pdb
                '(lambda (command)
-                  (compilation-start command
-                                     nil
-                                     (lambda (mode) (concat "*nosetests*")))))
+                  (let ((compilation-error-regexp-alist
+                         '(("  File \"\\(.*\\)\", line \\([0-9]+\\), in test_" 1 2))))
+                    (compilation-start command
+                                       nil
+                                       (lambda (mode) (concat "*nosetests*"))))))
              (format
               (concat "%s "
                       (if nose-use-verbose "-v " "")
