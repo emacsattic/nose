@@ -58,9 +58,12 @@
 (defvar nose-project-root-test 'nose-project-root)
 (defvar nose-global-name "nosetests")
 (defvar nose-use-verbose t)
+(defvar nose--last-run-params nil)
 
 (defun run-nose (&optional tests debug failed)
   "run nosetests"
+  (setq nose--last-run-params (list tests debug failed))
+
   (let* ((nose (nose-find-test-runner))
          (where (nose-find-project-root))
          (args (concat (if debug "--pdb" "")
@@ -117,6 +120,11 @@
 (defun nosetests-pdb-one ()
   (interactive)
   (nosetests-one t))
+
+(defun nosetests-again ()
+  "runs the most recently executed 'nosetests' command again"
+  (interactive)
+  (apply 'run-nose nose--last-run-params))
 
 (defun nose-find-test-runner ()
   (message
