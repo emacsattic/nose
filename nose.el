@@ -41,32 +41,85 @@
 ;; If you want dots as output, rather than the verbose output:
 ;; (defvar nose-use-verbose nil) ; default is t
 
-;; Probably also want some keybindings:
-;; (add-hook 'python-mode-hook
-;;           (lambda ()
-;;             (local-set-key "\C-ca" 'nosetests-all)
-;;             (local-set-key "\C-cm" 'nosetests-module)
-;;             (local-set-key "\C-c." 'nosetests-one)
-;;             (local-set-key "\C-c\C-c" 'nosetests-again)
-;;             (local-set-key "\C-cpa" 'nosetests-pdb-all)
-;;             (local-set-key "\C-cpm" 'nosetests-pdb-module)
-;;             (local-set-key "\C-cp." 'nosetests-pdb-one)))
+;; nose.el adds a minor mode called 'nose' that's currently only used to
+;; manage keybindings and provide a hook for changing the behaviour of
+;; the nose output buffer.
+
+;; This is the recommended way to activate nose keybindings when viewing
+;; Python files:
+ 
+;; (add-hook 'python-mode-hook (lambda () (nose-mode t)))
+
+;; nose-mode is also activated when nose displays the buffer that shows
+;; the output of nosetests.
+
+;; Code like that given below can be used to change nose.el's keybindings.
+;; The bindings shown are nose.el's default bindings. If you wish to use
+;; these bindings, then you don't need to include this code in .emacs
+
+;; (define-key nose-mode-map "\C-ca" 'nosetests-all)
+;; (define-key nose-mode-map "\C-cm" 'nosetests-module)
+;; (define-key nose-mode-map "\C-c." 'nosetests-one)
+;; (define-key nose-mode-map "\C-cc" 'nosetests-again)
+;; (define-key nose-mode-map "\C-cpa" 'nosetests-pdb-all)
+;; (define-key nose-mode-map "\C-cpm" 'nosetests-pdb-module)
+;; (define-key nose-mode-map "\C-cp." 'nosetests-pdb-one)
 
 (require 'cl) ;; for "reduce"
 
 (defvar nose-project-names '("eco/bin/test"))
-(defvar nose-project-root-files '("setup.py" ".hg" ".git"))
-(defvar nose-project-root-test 'nose-project-root)
-(defvar nose-global-name "nosetests")
-(defvar nose-use-verbose t)
-(defvar nose--last-run-params nil)
+
+(defvar nose-project-root-files '("setup.py" ".hg" ".git")
+  "A list of file names. A directory with any of the files
+present is considered to be a 'project root'.")
+
+(defvar nose-project-root-test 'nose-project-root
+  "The function to use to discover the root of the current
+project. The function should return a directory path.")
+
+(defvar nose-global-name "nosetests"
+  "The command to be run when executing nosetests.")
+
+(defvar nose-use-verbose t
+  "If t, then the 'verbose' option is passed to nosetests.")
+
+(defvar nose-finish-functions nil
+  "Functions to call when nosetests complete. See compilation-finish-functions.")
+
+(defvar nose--last-run-params nil
+  "Stores the last parameters passed to run-nose")
+
+(defvar-local nose-local-project-root nil
+  "This variable will define the project root when a 'current
+file name' is inapplicable to the current buffer. An example is
+during display of nosetest results (compilation buffer.) It
+should be set local to such buffers at the time when they're
+created." )
+
+(define-minor-mode nose-mode "nosetests"
+  "Minor mode enabling nosetests key commands."
+  :keymap
+  '(("\C-ca" . nosetests-all)
+    ("\C-cm" . nosetests-module)
+    ("\C-c." . nosetests-one)
+    ("\C-cc" . nosetests-again)
+    ("\C-cpa" . nosetests-pdb-all)
+    ("\C-cpm" . nosetests-pdb-module)
+    ("\C-cp." . nosetests-pdb-one)) )
+
+(defun nose--finish-function-hook (buffer message)
+  (if (string= (buffer-name buffer) "*nosetests*")
+	  (dolist (func nose-finish-functions)
+		(funcall func buffer message) )))
+
+(add-to-list 'compilation-finish-functions 'nose--finish-function-hook)
 
 (defun run-nose (&optional tests debug failed)
   "run nosetests"
   (setq nose--last-run-params (list tests debug failed))
 
   (let* ((nose (nose-find-test-runner))
-         (where (nose-find-project-root))
+         (where (or nose-local-project-root (nose-find-project-root)))
          (args (concat (if debug "--pdb" "")
                        " "
                        (if failed "--failed" "")))
@@ -75,14 +128,23 @@
         (error
          (format (concat "abort: nosemacs couldn't find a project root, "
                          "looked for any of %S") nose-project-root-files)))
+
+	;; Execute nosetests and display the result in a compilation buffer.
+	;;
+	;; Store the active project root in a buffer-local variable, so that nose
+	;; can invoked from it by the user after execution is complete. This is
+	;; necessary because the compilation buffer doesn't have a filename from
+	;; which it could be discovered.
     (funcall (if debug
                  'pdb
                '(lambda (command)
                   (let ((compilation-error-regexp-alist
                          '(("  File \"\\(.*\\)\", line \\([0-9]+\\), in test_" 1 2))))
-                    (compilation-start command
-                                       nil
-                                       (lambda (mode) (concat "*nosetests*"))))))
+                    (save-current-buffer
+					  (set-buffer (compilation-start command
+													 nil
+													 (lambda (mode) (concat "*nosetests*"))))
+					  (setq-local nose-local-project-root where)))))
              (format
               (concat "%s "
                       (if nose-use-verbose "-v " "")
@@ -96,10 +158,12 @@
   (run-nose nil debug failed))
 
 (defun nosetests-failed (&optional debug)
+  "run nosetests with the --failed option"
   (interactive)
   (nosetests-all debug t))
 
 (defun nosetests-pdb-all ()
+  "run all tests using the python debugger"
   (interactive)
   (nosetests-all t))
 
@@ -109,6 +173,7 @@
   (run-nose buffer-file-name debug))
 
 (defun nosetests-pdb-module ()
+  "run tests in the current buffer using the Python debugger"
   (interactive)
   (nosetests-module t))
 
@@ -119,6 +184,8 @@
   (run-nose (format "%s:%s" buffer-file-name (nose-py-testable)) debug))
 
 (defun nosetests-pdb-one ()
+  "run nosetests (via eggs/bin/test) on testable thing
+ at point in current buffer using the Python debugger"
   (interactive)
   (nosetests-one t))
 
@@ -130,16 +197,16 @@
 (defun nose-find-test-runner ()
   (message
    (let ((result
-          (reduce '(lambda (x y) (or x y))
-        (mapcar 'nose-find-test-runner-names nose-project-names))))
-     (if result
-         result
-       nose-global-name))))
+		  (reduce '(lambda (x y) (or x y))
+				  (mapcar 'nose-find-test-runner-names nose-project-names))))
+	 (if result
+		 result
+	   nose-global-name))))
 
 (defun nose-find-test-runner-names (runner)
   "find eggs/bin/test in a parent dir of current buffer's file"
   (nose-find-test-runner-in-dir-named
-   (file-name-directory buffer-file-name) runner))
+   (file-name-directory (nose--context-path)) runner))
 
 (defun nose-find-test-runner-in-dir-named (dn runner)
   (let ((fn (expand-file-name runner dn)))
@@ -176,11 +243,17 @@
        (buffer-substring-no-properties (match-beginning 1) (match-end 1))
        result))))
 
+(defun nose--context-path ()
+  "Returns the best known file path, given available context,
+ from which nose.el could use to figure out the location of
+important resources such as project roots."
+  (or buffer-file-name nose-local-project-root))
+
 (defun nose-find-project-root (&optional dirname)
   (let ((dn
          (if dirname
              dirname
-           (file-name-directory buffer-file-name))))
+           (file-name-directory (nose--context-path)))))
     (cond ((funcall nose-project-root-test dn) (expand-file-name dn))
           ((equal (expand-file-name dn) "/") nil)
         (t (nose-find-project-root
