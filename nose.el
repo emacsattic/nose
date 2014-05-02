@@ -87,7 +87,7 @@
               (concat "%s "
                       (if nose-use-verbose "-v " "")
                       "%s -w %s -c %ssetup.cfg %s")
-              (nose-find-test-runner) args where where tnames)))
+              nose args where where tnames)))
   )
 
 (defun nosetests-all (&optional debug failed)
@@ -162,7 +162,7 @@
 (defun inner-testable ()
   (save-excursion
     (re-search-backward
-     "^ \\{0,4\\}\\(class\\|def\\)[ \t]+\\([a-zA-Z0-9_]+\\)" nil t)
+     "^\\(?: \\{0,4\\}\\|\t\\)\\(class\\|def\\)[ \t]+\\([a-zA-Z0-9_]+\\)" nil t)
     (buffer-substring-no-properties (match-beginning 2) (match-end 2))))
 
 (defun outer-testable ()
