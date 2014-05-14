@@ -96,7 +96,7 @@ during display of nosetest results (compilation buffer.) It
 should be set local to such buffers at the time when they're
 created." )
 
-(define-minor-mode nose-mode "nosetests"
+(define-minor-mode nose-mode
   "Minor mode enabling nosetests key commands."
   :keymap
   '(("\C-ca" . nosetests-all)
