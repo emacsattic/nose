@@ -99,13 +99,13 @@ created." )
 (define-minor-mode nose-mode
   "Minor mode enabling nosetests key commands."
   :keymap
-  '(("\C-ca" . nosetests-all)
-    ("\C-cm" . nosetests-module)
-    ("\C-c." . nosetests-one)
-    ("\C-cc" . nosetests-again)
-    ("\C-cpa" . nosetests-pdb-all)
-    ("\C-cpm" . nosetests-pdb-module)
-    ("\C-cp." . nosetests-pdb-one)) )
+  '(("\C-c.a" . nosetests-all)
+    ("\C-c.m" . nosetests-module)
+    ("\C-c.o" . nosetests-one)
+    ("\C-c.c" . nosetests-again)
+    ("\C-c.pa" . nosetests-pdb-all)
+    ("\C-c.pm" . nosetests-pdb-module)
+    ("\C-c.po" . nosetests-pdb-one)) )
 
 (defun nose--finish-function-hook (buffer message)
   (if (string= (buffer-name buffer) "*nosetests*")
